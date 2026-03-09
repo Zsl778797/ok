@@ -1,0 +1,48 @@
+name: Build APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.9'
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses6 libncursesw6 cmake libffi-dev libssl-dev
+        pip install buildozer cython kivy
+    
+    - name: Setup Android SDK and accept licenses
+      run: |
+        export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
+        mkdir -p $ANDROID_HOME/cmdline-tools
+        cd $ANDROID_HOME
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+        unzip -q commandlinetools-linux-11076708_latest.zip
+        mv cmdline-tools $ANDROID_HOME/cmdline-tools/latest
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;33.0.0" "platform-tools" "platforms;android-33" "ndk;25.2.9519653"
+    
+    - name: Build APK
+      run: |
+        export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
+        buildozer android debug
+      timeout-minutes: 60
+    
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: ThunderFighter
+        path: bin/*.apk
+      if: always()
